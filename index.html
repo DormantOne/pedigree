@@ -1,0 +1,1923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Family History Canvas MVP — Guidelines + PREMM5 + Autosave (v3)</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#0f1b33;
+      --panel2:#0c172d;
+      --text:#e9eefc;
+      --muted:#a9b7df;
+      --accent:#5eead4;
+      --danger:#fb7185;
+      --warn:#fbbf24;
+      --ok:#34d399;
+      --line:#223155;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:var(--bg); color:var(--text);
+      height:100vh; overflow:hidden;
+    }
+    .app{
+      display:grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      height:100vh;
+      gap:10px;
+      padding:10px;
+    }
+    .card{
+      background:linear-gradient(180deg, var(--panel), var(--panel2));
+      border:1px solid var(--line);
+      border-radius:16px;
+      overflow:hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .left{ display:grid; grid-template-rows:auto 1fr auto; }
+    .toolbar{
+      display:flex; flex-wrap:wrap;
+      gap:8px;
+      padding:10px;
+      border-bottom:1px solid var(--line);
+      align-items:center;
+    }
+    button{
+      background:#13264a;
+      color:var(--text);
+      border:1px solid #274173;
+      border-radius:10px;
+      padding:8px 10px;
+      cursor:pointer;
+      font-weight:650;
+      transition: transform .08s ease, background .2s ease;
+      user-select:none;
+    }
+    button:hover{ background:#17315e; }
+    button:active{ transform: translateY(1px); }
+    button.primary{ border-color:#2dd4bf; }
+    button.danger{ border-color:#fb7185; }
+    button.small{ padding:6px 8px; font-size:12px; border-radius:9px; }
+
+    .hint{
+      color:var(--muted);
+      font-size:12px;
+      margin-left:auto;
+      max-width:620px;
+      line-height:1.25;
+    }
+
+    .savePill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      margin:0 10px 6px 0;
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid #274173;
+      background:#0c1a35;
+      color:#e9eefc;
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .saveDot{
+      width:9px; height:9px; border-radius:999px;
+      background:#64748b;
+      box-shadow: 0 0 0 3px rgba(100,116,139,0.15);
+    }
+    .saveDot.ok{ background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,0.18); }
+    .saveDot.warn{ background: var(--warn); box-shadow: 0 0 0 3px rgba(251,191,36,0.18); }
+    .saveDot.danger{ background: var(--danger); box-shadow: 0 0 0 3px rgba(251,113,133,0.18); }
+
+    canvas{
+      width:100%; height:100%;
+      display:block;
+      background: radial-gradient(1200px 600px at 30% 10%, rgba(94,234,212,0.07), transparent 55%),
+                  radial-gradient(900px 600px at 80% 60%, rgba(59,130,246,0.08), transparent 60%),
+                  #071022;
+      touch-action:none;
+    }
+    .editor{
+      padding:10px;
+      border-top:1px solid var(--line);
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+      max-height: 44vh;
+      overflow:auto;
+    }
+    .field{
+      display:flex; flex-direction:column; gap:6px;
+      font-size:12px; color:var(--muted);
+    }
+    input, select, textarea{
+      background:#0c1a35;
+      color:var(--text);
+      border:1px solid #274173;
+      border-radius:10px;
+      padding:8px;
+      outline:none;
+      font-size:13px;
+    }
+    .row{ display:flex; gap:8px; align-items:center; }
+    .dxList{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-top:6px;
+    }
+    .dxItem{
+      display:grid;
+      grid-template-columns: 1fr 90px 40px;
+      gap:8px;
+      align-items:center;
+      padding:8px;
+      border:1px solid #274173;
+      border-radius:12px;
+      background:#0c1a35;
+    }
+    .chipset{
+      display:flex; flex-wrap:wrap; gap:8px;
+      margin-top:6px;
+    }
+    .chip{
+      display:flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border:1px solid #274173;
+      border-radius:999px;
+      background:#0c1a35;
+      color:var(--text);
+      font-size:12px;
+      user-select:none;
+    }
+    .chip input{ width:14px; height:14px; }
+    .right{ display:grid; grid-template-rows:auto 1fr auto; }
+    .right header{ padding:14px; border-bottom:1px solid var(--line); }
+    .title{ font-size:16px; font-weight:800; letter-spacing:.2px; }
+    .subtitle{ font-size:12px; color:var(--muted); margin-top:4px; line-height:1.35; }
+    .out{ padding:14px; overflow:auto; }
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid #274173;
+      background:#0c1a35;
+      font-size:12px;
+      margin:4px 6px 0 0;
+      color:var(--text);
+    }
+    .pill.warn{ border-color: rgba(251,191,36,.6); }
+    .pill.danger{ border-color: rgba(251,113,133,.6); }
+    .pill.ok{ border-color: rgba(52,211,153,.55); }
+    .section{
+      margin-top:14px;
+      padding-top:10px;
+      border-top:1px dashed rgba(39,65,115,.7);
+    }
+    .section h3{ margin:0 0 6px 0; font-size:13px; color:#dbe6ff; }
+    ul{ margin:6px 0 0 18px; padding:0; }
+    li{ margin:6px 0; color:var(--text); }
+    .muted{ color:var(--muted); }
+    .footer{
+      padding:12px 14px;
+      border-top:1px solid var(--line);
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    a{ color:var(--accent); text-decoration:none; }
+    a:hover{ text-decoration:underline; }
+    code{
+      background:#0c1a35;
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid #274173;
+      color:#dbe6ff;
+    }
+    .metricRow{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:10px;
+      border:1px solid #274173;
+      border-radius:14px;
+      background:#0c1a35;
+      margin-top:10px;
+    }
+    .metricVal{
+      font-weight:900;
+      font-size:18px;
+      letter-spacing:.2px;
+    }
+    .badge{
+      padding:4px 10px;
+      border:1px solid #274173;
+      border-radius:999px;
+      font-size:12px;
+      color:var(--text);
+    }
+    .badge.ok{ border-color: rgba(52,211,153,.55); }
+    .badge.warn{ border-color: rgba(251,191,36,.6); }
+    .badge.danger{ border-color: rgba(251,113,133,.6); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- LEFT -->
+    <div class="card left">
+      <div class="toolbar">
+        <button class="primary" id="addMale">+ Male</button>
+        <button class="primary" id="addFemale">+ Female</button>
+        <button class="primary" id="addUnknown">+ Unknown</button>
+        <button id="setProband" class="small">Set Proband</button>
+
+        <button id="connectPartner" class="small">Connect Partners → Union</button>
+        <button id="connectUnionChild" class="small">Union → Child</button>
+        <button id="delete" class="small danger">Delete</button>
+
+        <button id="export" class="small">Export JSON</button>
+        <button id="import" class="small">Import JSON</button>
+        <button id="resetView" class="small">Reset View</button>
+
+        <button id="saveNow" class="small">Save now</button>
+        <button id="clearSaved" class="small danger">Clear saved</button>
+
+        <div class="hint">
+          <span class="savePill"><span id="saveDot" class="saveDot"></span><span id="saveStatus">Autosave: idle</span></span>
+          <b>Workflow:</b> Connect partners to create a tiny <b>union box</b>. Then use <b>Union → Child</b>
+          (click union, then child). Click a person to add cancer types + ages + exposures.
+          Scroll to zoom; drag empty space to pan.
+        </div>
+      </div>
+
+      <canvas id="c"></canvas>
+
+      <div class="editor">
+        <div class="field" style="grid-column:1 / span 2;">
+          <label>Selected</label>
+          <input id="selLabel" disabled value="(none)" />
+        </div>
+
+        <!-- Person fields -->
+        <div class="field" id="personFieldsA">
+          <label>Sex</label>
+          <select id="sex">
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+            <option value="U">Unknown</option>
+          </select>
+        </div>
+        <div class="field" id="personFieldsB">
+          <label>Name / label</label>
+          <input id="name" placeholder="e.g., Mom, Uncle Joe" />
+        </div>
+
+        <div class="field" id="personFieldsC">
+          <label>Age (approx OK)</label>
+          <input id="age" type="number" min="0" placeholder="e.g., 62" />
+        </div>
+
+        <!-- Ethnicity select -->
+        <div class="field" id="personFieldsD">
+          <label>Ethnicity / ancestry (selectable)</label>
+          <select id="ethSel">
+            <option value="">(unknown)</option>
+            <option value="ashkenazi_jewish">Ashkenazi Jewish</option>
+            <option value="east_asian">East Asian (general)</option>
+            <option value="han_chinese">Han Chinese</option>
+            <option value="chinese_other">Chinese (other)</option>
+            <option value="japanese">Japanese</option>
+            <option value="korean">Korean</option>
+            <option value="southeast_asian">Southeast Asian</option>
+            <option value="south_asian">South Asian</option>
+            <option value="black_african_diaspora">Black / African diaspora</option>
+            <option value="hispanic_latino">Hispanic / Latino</option>
+            <option value="mena">Middle Eastern / North African</option>
+            <option value="native_indigenous">Native / Indigenous</option>
+            <option value="pacific_islander">Pacific Islander</option>
+            <option value="european">European</option>
+            <option value="other">Other (specify)</option>
+          </select>
+          <input id="ethCustom" placeholder="If Other, type here..." style="display:none;" />
+        </div>
+
+        <div class="field" style="grid-column:1 / span 2;" id="dxBlock">
+          <label>Diagnoses (clickable)</label>
+          <div class="row">
+            <select id="dxType" style="flex:1;">
+              <option value="breast">Breast cancer</option>
+              <option value="ovarian">Ovarian cancer</option>
+              <option value="crc">Colon/CRC</option>
+              <option value="endometrial">Endometrial</option>
+              <option value="pancreas">Pancreatic</option>
+              <option value="prostate">Prostate</option>
+              <option value="lung">Lung</option>
+              <option value="stomach">Stomach</option>
+              <option value="urothelial">Urothelial/urinary tract</option>
+              <option value="small_bowel">Small bowel</option>
+              <option value="brain">Brain</option>
+              <option value="sebaceous">Sebaceous skin tumor</option>
+              <option value="other">Other</option>
+            </select>
+            <input id="dxAge" type="number" min="0" placeholder="Age" style="width:90px;" />
+            <button id="dxAdd" class="small">Add</button>
+          </div>
+          <div class="dxList" id="dxList"></div>
+          <div class="muted" style="margin-top:6px;">
+            Tip: early ages and multi-cancer patterns drive the guideline flags.
+          </div>
+        </div>
+
+        <div class="field" style="grid-column:1 / span 2;" id="envBlock">
+          <label>Environmental / context contributors (clickable)</label>
+          <div class="row">
+            <div class="field" style="flex:1; margin:0;">
+              <label style="margin:0; padding:0;">Smoking</label>
+              <select id="smoke">
+                <option value="">(unknown)</option>
+                <option value="never">Never</option>
+                <option value="former">Former</option>
+                <option value="current">Current</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1; margin:0;">
+              <label style="margin:0; padding:0;">Deceased</label>
+              <select id="deceased">
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="chipset">
+            <label class="chip"><input type="checkbox" id="env_radon"> Radon</label>
+            <label class="chip"><input type="checkbox" id="env_asbestos"> Asbestos</label>
+            <label class="chip"><input type="checkbox" id="env_secondhand"> Secondhand smoke</label>
+            <label class="chip"><input type="checkbox" id="env_ibd"> IBD</label>
+            <label class="chip"><input type="checkbox" id="env_obesity"> Obesity/metabolic</label>
+            <label class="chip"><input type="checkbox" id="env_pancreatitis"> Chronic pancreatitis</label>
+            <label class="chip"><input type="checkbox" id="env_diabetes"> Diabetes</label>
+            <label class="chip"><input type="checkbox" id="env_occupational"> Occupational exposure</label>
+          </div>
+
+          <div class="muted" style="margin-top:6px;">
+            These do <b>not</b> prove genetics; they’re “context knobs” for the narrative.
+          </div>
+        </div>
+
+        <div class="field" style="grid-column:1 / span 2;" id="notesBlock">
+          <label>Notes (optional)</label>
+          <input id="notes" placeholder="e.g., bilateral breast ca, metastatic, etc." />
+        </div>
+
+        <!-- Union-only note -->
+        <div class="field" style="grid-column:1 / span 2; display:none;" id="unionInfo">
+          <label>Union node</label>
+          <div class="muted">
+            This is the partner union “tiny box.” Use <b>Union → Child</b> to connect children.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card right">
+      <header>
+        <div class="title">Guidelines + PREMM5 + “Feel” Numbers</div>
+        <div class="subtitle">
+          Base output is guideline-style “meets criteria?” flags. PREMM5 can be entered (official) or estimated (proxy).
+          The app will always label when it’s approximating.
+        </div>
+
+        <div class="row" style="margin-top:10px;">
+          <div class="field" style="flex:1; margin:0;">
+            <label style="margin:0; padding:0;">Official PREMM5 % (optional)</label>
+            <input id="premm5Official" type="number" min="0" max="100" step="0.1" placeholder="e.g., 3.2" />
+          </div>
+          <button id="clearPremm5" class="small">Clear</button>
+        </div>
+
+        <div class="muted" style="margin-top:6px;">
+          Tip: official PREMM5 is the “real number.” Proxy is for feel if you don’t have the calculator result yet.
+        </div>
+      </header>
+
+      <div class="out" id="out"></div>
+
+      <div class="footer">
+        <b>Disclaimer:</b> Decision support only. Not diagnosis. Genetics counseling / institutional policy wins.
+        U.S. reminder: GINA doesn’t cover life/disability/LTC insurance.
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * v3 changes:
+ * - Autosave/restore (localStorage) + status pill.
+ * - Guideline-first triggers + PREMM5 (official input + proxy estimate) + explicit approximation labeling.
+ * - Live recalculation on edits and relationship changes.
+ */
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function fitCanvas(){
+  const r = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(r.width * devicePixelRatio);
+  canvas.height = Math.floor(r.height * devicePixelRatio);
+  ctx.setTransform(1,0,0,1,0,0);
+}
+window.addEventListener('resize', () => { fitCanvas(); draw(); });
+fitCanvas();
+
+const ETH_MAP = {
+  "": "",
+  "ashkenazi_jewish": "Ashkenazi Jewish",
+  "east_asian": "East Asian (general)",
+  "han_chinese": "Han Chinese",
+  "chinese_other": "Chinese (other)",
+  "japanese": "Japanese",
+  "korean": "Korean",
+  "southeast_asian": "Southeast Asian",
+  "south_asian": "South Asian",
+  "black_african_diaspora": "Black / African diaspora",
+  "hispanic_latino": "Hispanic / Latino",
+  "mena": "Middle Eastern / North African",
+  "native_indigenous": "Native / Indigenous",
+  "pacific_islander": "Pacific Islander",
+  "european": "European",
+  "other": "Other"
+};
+
+const DX_LABEL = {
+  breast: "Breast cancer",
+  ovarian: "Ovarian cancer",
+  crc: "Colon/CRC",
+  endometrial: "Endometrial",
+  pancreas: "Pancreatic",
+  prostate: "Prostate",
+  lung: "Lung",
+  stomach: "Stomach",
+  urothelial: "Urothelial/urinary tract",
+  small_bowel: "Small bowel",
+  brain: "Brain",
+  sebaceous: "Sebaceous skin tumor",
+  other: "Other"
+};
+
+const state = {
+  people: {},           // id -> person
+  unions: {},           // id -> union {id, a, b}
+  unionChildren: [],    // {union, child}
+  probandId: null,
+  sel: null,            // {kind:'person'|'union', id}
+  tool: null,           // 'connectPartner' | 'connectUnionChild' | null
+  toolStage: 0,
+  toolFrom: null,
+  view: { panX: 0, panY: 0, scale: 1 },
+  dragging: null,
+  draggingPan: false,
+  lastPt: null,
+  meta: {
+    premm5_official_pct: ""  // string/number stored
+  }
+};
+
+let idCounter = 1;
+let unionCounter = 1;
+function newPersonId(){ return "P" + (idCounter++); }
+function newUnionId(){ return "U" + (unionCounter++); }
+
+const DX_CANON = [
+  "breast","ovarian","crc","endometrial","pancreas","prostate","lung",
+  "stomach","urothelial","small_bowel","brain","sebaceous","other"
+];
+
+// Lynch-associated bucket (not exhaustive; good-enough for a toy “flag”)
+const LS_RELATED = new Set(["crc","endometrial","stomach","urothelial","small_bowel","brain","sebaceous","ovarian","pancreas"]);
+
+function clamp(x, a, b){ return Math.max(a, Math.min(b, x)); }
+function sigmoid(x){ return 1 / (1 + Math.exp(-x)); }
+function fmtDx(t){ return DX_LABEL[t] || t; }
+
+function addPerson(sex){
+  const id = newPersonId();
+  const center = screenToWorld(canvas.width/(2*devicePixelRatio), canvas.height/(2*devicePixelRatio));
+  state.people[id] = {
+    id,
+    kind: "person",
+    sex,
+    name: id,
+    x: center.x + (Math.random()*120-60),
+    y: center.y + (Math.random()*120-60),
+    age: "",
+    eth_code: "",
+    eth_label: "",
+    dx: [],
+    env: {
+      smoke: "",
+      radon: false,
+      asbestos: false,
+      secondhand: false,
+      ibd: false,
+      obesity: false,
+      pancreatitis: false,
+      diabetes: false,
+      occupational: false,
+    },
+    notes: "",
+    deceased: false,
+  };
+  if(!state.probandId) state.probandId = id;
+  select({kind:"person", id});
+  draw();
+  scheduleAutosave("add person");
+}
+
+function removeSelection(){
+  if(!state.sel) return;
+  const {kind,id} = state.sel;
+
+  if(kind === "person"){
+    delete state.people[id];
+    for(const uid of Object.keys(state.unions)){
+      const u = state.unions[uid];
+      if(u.a === id || u.b === id) delete state.unions[uid];
+    }
+    state.unionChildren = state.unionChildren.filter(e => state.unions[e.union] && state.people[e.child]);
+    if(state.probandId === id) state.probandId = Object.keys(state.people)[0] || null;
+    if(state.probandId && !state.people[state.probandId]) state.probandId = Object.keys(state.people)[0] || null;
+    state.sel = null;
+  } else if(kind === "union"){
+    delete state.unions[id];
+    state.unionChildren = state.unionChildren.filter(e => e.union !== id);
+    state.sel = null;
+  }
+  draw();
+  renderOutput();
+  fillEditor();
+  scheduleAutosave("delete");
+}
+
+function select(sel){
+  state.sel = sel;
+  fillEditor();
+  renderOutput();
+  draw();
+}
+
+function worldToScreen(x,y){
+  return { x: (x*state.view.scale + state.view.panX), y: (y*state.view.scale + state.view.panY) };
+}
+function screenToWorld(x,y){
+  return { x: (x - state.view.panX)/state.view.scale, y: (y - state.view.panY)/state.view.scale };
+}
+
+function unionPos(u){
+  const a = state.people[u.a], b = state.people[u.b];
+  if(!a || !b) return {x:0,y:0};
+  return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+}
+
+function hitTest(wx, wy){
+  for(const uid of Object.keys(state.unions)){
+    const u = state.unions[uid];
+    const p = unionPos(u);
+    const dx = wx - p.x;
+    const dy = wy - p.y;
+    const r = 10;
+    if(dx*dx + dy*dy <= r*r) return {kind:"union", id:uid};
+  }
+  const ids = Object.keys(state.people);
+  for(let i = ids.length-1; i>=0; i--){
+    const p = state.people[ids[i]];
+    const dx = wx - p.x;
+    const dy = wy - p.y;
+    const r = 28;
+    if(dx*dx + dy*dy <= r*r) return {kind:"person", id:p.id};
+  }
+  return null;
+}
+
+function draw(){
+  ctx.save();
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  ctx.clearRect(0,0,canvas.width/devicePixelRatio, canvas.height/devicePixelRatio);
+
+  // grid
+  ctx.save();
+  ctx.globalAlpha = 0.12;
+  ctx.strokeStyle = "#2a3a63";
+  const step = 60 * state.view.scale;
+  const w = canvas.width/devicePixelRatio, h = canvas.height/devicePixelRatio;
+  for(let x = (state.view.panX % step); x < w; x += step){
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+  }
+  for(let y = (state.view.panY % step); y < h; y += step){
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+  }
+  ctx.restore();
+
+  // union -> partners
+  for(const uid of Object.keys(state.unions)){
+    const u = state.unions[uid];
+    const a = state.people[u.a], b = state.people[u.b];
+    if(!a || !b) continue;
+    const U = worldToScreen(unionPos(u).x, unionPos(u).y);
+    const A = worldToScreen(a.x,a.y);
+    const B = worldToScreen(b.x,b.y);
+
+    ctx.strokeStyle = "#5eead4";
+    ctx.globalAlpha = 0.55;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(A.x, A.y);
+    ctx.lineTo(U.x, U.y);
+    ctx.lineTo(B.x, B.y);
+    ctx.stroke();
+  }
+
+  // union -> child
+  for(const e of state.unionChildren){
+    const u = state.unions[e.union];
+    const child = state.people[e.child];
+    if(!u || !child) continue;
+    const U = worldToScreen(unionPos(u).x, unionPos(u).y);
+    const C = worldToScreen(child.x,child.y);
+
+    ctx.strokeStyle = "#93c5fd";
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(U.x, U.y);
+    ctx.lineTo(C.x, C.y);
+    ctx.stroke();
+  }
+
+  // people
+  for(const id of Object.keys(state.people)){
+    const p = state.people[id];
+    const s = worldToScreen(p.x,p.y);
+    const selected = (state.sel && state.sel.kind==="person" && state.sel.id===id);
+    const proband = (id === state.probandId);
+
+    const hasCancer = (p.dx || []).some(d => DX_CANON.includes(d.type));
+    const outline = selected ? "#fbbf24" : (proband ? "#5eead4" : "#274173");
+    const fill = hasCancer ? "rgba(251,113,133,0.25)" : "rgba(12,26,53,0.95)";
+
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.strokeStyle = outline;
+    ctx.fillStyle = fill;
+
+    const r = 22;
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    if(p.sex === "M"){
+      ctx.rect(s.x-r, s.y-r, r*2, r*2);
+    } else if(p.sex === "F"){
+      ctx.arc(s.x, s.y, r, 0, Math.PI*2);
+    } else {
+      ctx.moveTo(s.x, s.y-r);
+      ctx.lineTo(s.x+r, s.y);
+      ctx.lineTo(s.x, s.y+r);
+      ctx.lineTo(s.x-r, s.y);
+      ctx.closePath();
+    }
+    ctx.fill(); ctx.stroke();
+
+    if(p.deceased){
+      ctx.strokeStyle = "#a9b7df";
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(s.x-r-6, s.y-r-6);
+      ctx.lineTo(s.x+r+6, s.y+r+6);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.fillStyle = "#e9eefc";
+    ctx.font = "12px system-ui";
+    const label = p.name || p.id;
+    ctx.fillText(label, s.x - ctx.measureText(label).width/2, s.y + r + 18);
+
+    if(proband){
+      ctx.fillStyle = "#5eead4";
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.moveTo(s.x + r + 10, s.y);
+      ctx.lineTo(s.x + r + 26, s.y - 8);
+      ctx.lineTo(s.x + r + 26, s.y + 8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // unions (tiny box)
+  for(const uid of Object.keys(state.unions)){
+    const u = state.unions[uid];
+    const pos = unionPos(u);
+    const s = worldToScreen(pos.x,pos.y);
+    const selected = (state.sel && state.sel.kind==="union" && state.sel.id===uid);
+
+    ctx.lineWidth = selected ? 3 : 2;
+    ctx.strokeStyle = selected ? "#fbbf24" : "#2dd4bf";
+    ctx.fillStyle = "rgba(12,26,53,0.98)";
+    const r = 8;
+    ctx.beginPath();
+    ctx.rect(s.x-r, s.y-r, r*2, r*2);
+    ctx.fill(); ctx.stroke();
+  }
+
+  // tool overlay
+  if(state.tool){
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.fillStyle = "rgba(12,26,53,0.92)";
+    ctx.strokeStyle = "#274173";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(12, 12, 560, 46, 12);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#e9eefc";
+    ctx.font = "13px system-ui";
+    const msg = state.tool === "connectPartner"
+      ? `Tool: Partners → Union. Click person A, then person B. (ESC cancels)`
+      : `Tool: Union → Child. Click union box, then child. (ESC cancels)`;
+    ctx.fillText(msg, 24, 40);
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+if(!CanvasRenderingContext2D.prototype.roundRect){
+  CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+    const rr = Math.min(r, w/2, h/2);
+    this.beginPath();
+    this.moveTo(x+rr, y);
+    this.arcTo(x+w, y, x+w, y+h, rr);
+    this.arcTo(x+w, y+h, x, y+h, rr);
+    this.arcTo(x, y+h, x, y, rr);
+    this.arcTo(x, y, x+w, y, rr);
+    this.closePath();
+    return this;
+  };
+}
+
+// interaction
+function canvasPt(ev){
+  const rect = canvas.getBoundingClientRect();
+  const sx = (ev.clientX - rect.left);
+  const sy = (ev.clientY - rect.top);
+  const w = screenToWorld(sx, sy);
+  return {sx, sy, wx:w.x, wy:w.y};
+}
+
+canvas.addEventListener('pointerdown', (ev) => {
+  canvas.setPointerCapture(ev.pointerId);
+  const pt = canvasPt(ev);
+  state.lastPt = pt;
+  const hit = hitTest(pt.wx, pt.wy);
+
+  if(state.tool){
+    if(state.tool === "connectPartner"){
+      if(hit && hit.kind === "person"){
+        if(state.toolStage === 0){
+          state.toolFrom = hit.id; state.toolStage = 1;
+        } else {
+          const a = state.toolFrom, b = hit.id;
+          if(a !== b){
+            const exists = Object.values(state.unions).some(u => (u.a===a && u.b===b) || (u.a===b && u.b===a));
+            if(!exists){
+              const uid = newUnionId();
+              state.unions[uid] = {id:uid, kind:"union", a, b};
+              scheduleAutosave("add union");
+            }
+          }
+          state.tool = null; state.toolStage = 0; state.toolFrom = null;
+          renderOutput(); draw();
+        }
+      }
+      return;
+    }
+
+    if(state.tool === "connectUnionChild"){
+      if(hit){
+        if(state.toolStage === 0){
+          if(hit.kind === "union"){
+            state.toolFrom = hit.id; state.toolStage = 1;
+          }
+        } else {
+          const uid = state.toolFrom;
+          if(hit.kind === "person" && uid && state.unions[uid]){
+            const child = hit.id;
+            const dup = state.unionChildren.some(e => e.union===uid && e.child===child);
+            if(!dup){
+              state.unionChildren.push({union:uid, child});
+              scheduleAutosave("add child link");
+            }
+          }
+          state.tool = null; state.toolStage = 0; state.toolFrom = null;
+          renderOutput(); draw();
+        }
+      }
+      return;
+    }
+  }
+
+  if(hit){
+    state.dragging = hit;
+    select(hit);
+  } else {
+    state.draggingPan = true;
+  }
+});
+
+canvas.addEventListener('pointermove', (ev) => {
+  const pt = canvasPt(ev);
+  if(!state.lastPt) state.lastPt = pt;
+  const dx = pt.sx - state.lastPt.sx;
+  const dy = pt.sy - state.lastPt.sy;
+
+  if(state.dragging && state.dragging.kind === "person"){
+    const p = state.people[state.dragging.id];
+    if(p){
+      p.x += dx / state.view.scale;
+      p.y += dy / state.view.scale;
+      draw();
+    }
+  } else if(state.draggingPan){
+    state.view.panX += dx;
+    state.view.panY += dy;
+    draw();
+  }
+
+  state.lastPt = pt;
+});
+
+canvas.addEventListener('pointerup', () => {
+  const didMove = !!state.dragging || state.draggingPan;
+  state.dragging = null;
+  state.draggingPan = false;
+  state.lastPt = null;
+  if(didMove) scheduleAutosave("move");
+});
+
+canvas.addEventListener('wheel', (ev) => {
+  ev.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const sx = ev.clientX - rect.left;
+  const sy = ev.clientY - rect.top;
+
+  const before = screenToWorld(sx, sy);
+  const zoom = Math.exp((-ev.deltaY) * 0.0012);
+  const newScale = Math.min(3.5, Math.max(0.35, state.view.scale * zoom));
+  state.view.scale = newScale;
+  const after = screenToWorld(sx, sy);
+
+  state.view.panX += (after.x - before.x) * state.view.scale;
+  state.view.panY += (after.y - before.y) * state.view.scale;
+  draw();
+  scheduleAutosave("zoom/pan");
+}, {passive:false});
+
+window.addEventListener('keydown', (ev) => {
+  if(ev.key === "Escape"){
+    state.tool = null; state.toolStage = 0; state.toolFrom = null;
+    draw();
+  }
+});
+
+// editor elements
+const el = {
+  selLabel: document.getElementById('selLabel'),
+  sex: document.getElementById('sex'),
+  name: document.getElementById('name'),
+  age: document.getElementById('age'),
+  notes: document.getElementById('notes'),
+  smoke: document.getElementById('smoke'),
+  deceased: document.getElementById('deceased'),
+
+  ethSel: document.getElementById('ethSel'),
+  ethCustom: document.getElementById('ethCustom'),
+
+  dxType: document.getElementById('dxType'),
+  dxAge: document.getElementById('dxAge'),
+  dxAdd: document.getElementById('dxAdd'),
+  dxList: document.getElementById('dxList'),
+
+  env_radon: document.getElementById('env_radon'),
+  env_asbestos: document.getElementById('env_asbestos'),
+  env_secondhand: document.getElementById('env_secondhand'),
+  env_ibd: document.getElementById('env_ibd'),
+  env_obesity: document.getElementById('env_obesity'),
+  env_pancreatitis: document.getElementById('env_pancreatitis'),
+  env_diabetes: document.getElementById('env_diabetes'),
+  env_occupational: document.getElementById('env_occupational'),
+
+  premm5Official: document.getElementById('premm5Official'),
+};
+
+const unionInfo = document.getElementById('unionInfo');
+const personBlocks = [
+  document.getElementById('personFieldsA'),
+  document.getElementById('personFieldsB'),
+  document.getElementById('personFieldsC'),
+  document.getElementById('personFieldsD'),
+  document.getElementById('dxBlock'),
+  document.getElementById('envBlock'),
+  document.getElementById('notesBlock'),
+];
+
+function showPersonUI(on){
+  for(const b of personBlocks) b.style.display = on ? "" : "none";
+  unionInfo.style.display = on ? "none" : "";
+}
+
+function normalizeEthFromLegacyString(s){
+  const t = (s||"").toLowerCase().trim();
+  if(!t) return {code:"", label:""};
+  if(t.includes("ashkenazi")) return {code:"ashkenazi_jewish", label:ETH_MAP.ashkenazi_jewish};
+  if(t.includes("han chinese") || (t.includes("han") && t.includes("chinese"))) return {code:"han_chinese", label:ETH_MAP.han_chinese};
+  if(t.includes("chinese")) return {code:"chinese_other", label:ETH_MAP.chinese_other};
+  if(t.includes("japanese")) return {code:"japanese", label:ETH_MAP.japanese};
+  if(t.includes("korean")) return {code:"korean", label:ETH_MAP.korean};
+  if(t.includes("east asian")) return {code:"east_asian", label:ETH_MAP.east_asian};
+  if(t.includes("southeast")) return {code:"southeast_asian", label:ETH_MAP.southeast_asian};
+  if(t.includes("south asian") || t.includes("indian") || t.includes("pakistani") || t.includes("bangladeshi")) return {code:"south_asian", label:ETH_MAP.south_asian};
+  if(t.includes("latino") || t.includes("hispanic")) return {code:"hispanic_latino", label:ETH_MAP.hispanic_latino};
+  if(t.includes("middle eastern") || t.includes("north african") || t.includes("mena")) return {code:"mena", label:ETH_MAP.mena};
+  if(t.includes("pacific")) return {code:"pacific_islander", label:ETH_MAP.pacific_islander};
+  if(t.includes("indigenous") || t.includes("native")) return {code:"native_indigenous", label:ETH_MAP.native_indigenous};
+  if(t.includes("europe")) return {code:"european", label:ETH_MAP.european};
+  if(t.includes("black") || t.includes("african")) return {code:"black_african_diaspora", label:ETH_MAP.black_african_diaspora};
+  return {code:"other", label:s};
+}
+
+function updateEthCustomVisibility(){
+  const v = el.ethSel.value;
+  el.ethCustom.style.display = (v === "other") ? "" : "none";
+}
+
+function fillEditor(){
+  if(!state.sel){
+    el.selLabel.value = "(none)";
+    showPersonUI(false);
+    return;
+  }
+  if(state.sel.kind === "union"){
+    const u = state.unions[state.sel.id];
+    const a = u ? (state.people[u.a]?.name || u.a) : "?";
+    const b = u ? (state.people[u.b]?.name || u.b) : "?";
+    el.selLabel.value = `${state.sel.id} (Union of ${a} + ${b})`;
+    showPersonUI(false);
+    return;
+  }
+
+  const p = state.people[state.sel.id];
+  if(!p){
+    el.selLabel.value = "(none)";
+    showPersonUI(false);
+    return;
+  }
+  showPersonUI(true);
+
+  el.selLabel.value = `${p.id}${p.id===state.probandId ? " (Proband)" : ""}`;
+  el.sex.value = p.sex || "U";
+  el.name.value = p.name || "";
+  el.age.value = p.age || "";
+  el.notes.value = p.notes || "";
+  el.smoke.value = p.env?.smoke || "";
+  el.deceased.value = p.deceased ? "1" : "0";
+
+  // ethnicity back-compat
+  if(!p.eth_code && (p.eth || "").trim()){
+    const inferred = normalizeEthFromLegacyString(p.eth);
+    p.eth_code = inferred.code;
+    p.eth_label = inferred.code === "other" ? "" : inferred.label;
+  }
+  el.ethSel.value = p.eth_code || "";
+  updateEthCustomVisibility();
+  if((p.eth_code || "") === "other"){
+    el.ethCustom.value = p.eth_label || p.eth || "";
+  } else {
+    el.ethCustom.value = "";
+  }
+
+  // env checks
+  el.env_radon.checked = !!p.env?.radon;
+  el.env_asbestos.checked = !!p.env?.asbestos;
+  el.env_secondhand.checked = !!p.env?.secondhand;
+  el.env_ibd.checked = !!p.env?.ibd;
+  el.env_obesity.checked = !!p.env?.obesity;
+  el.env_pancreatitis.checked = !!p.env?.pancreatitis;
+  el.env_diabetes.checked = !!p.env?.diabetes;
+  el.env_occupational.checked = !!p.env?.occupational;
+
+  renderDxList();
+}
+
+function writeBack(){
+  if(!state.sel || state.sel.kind !== "person") return;
+  const p = state.people[state.sel.id];
+  if(!p) return;
+
+  p.sex = el.sex.value;
+  p.name = el.name.value;
+  p.age = el.age.value;
+  p.notes = el.notes.value;
+  p.deceased = (el.deceased.value === "1");
+
+  // ethnicity write-back
+  const code = el.ethSel.value || "";
+  p.eth_code = code;
+  if(code === "other"){
+    p.eth_label = (el.ethCustom.value || "").trim();
+    p.eth = p.eth_label;
+  } else if(code){
+    p.eth_label = ETH_MAP[code] || code;
+    p.eth = p.eth_label;
+  } else {
+    p.eth_label = "";
+    p.eth = "";
+  }
+  updateEthCustomVisibility();
+
+  p.env = p.env || {};
+  p.env.smoke = el.smoke.value;
+  p.env.radon = el.env_radon.checked;
+  p.env.asbestos = el.env_asbestos.checked;
+  p.env.secondhand = el.env_secondhand.checked;
+  p.env.ibd = el.env_ibd.checked;
+  p.env.obesity = el.env_obesity.checked;
+  p.env.pancreatitis = el.env_pancreatitis.checked;
+  p.env.diabetes = el.env_diabetes.checked;
+  p.env.occupational = el.env_occupational.checked;
+
+  draw();
+  renderOutput();
+  scheduleAutosave("edit person");
+}
+
+for(const k of ["sex","name","age","notes","smoke","deceased",
+               "ethSel","ethCustom",
+               "env_radon","env_asbestos","env_secondhand","env_ibd","env_obesity","env_pancreatitis","env_diabetes","env_occupational"]){
+  el[k].addEventListener('input', writeBack);
+  el[k].addEventListener('change', writeBack);
+}
+el.ethSel.addEventListener("change", updateEthCustomVisibility);
+
+// Dx editing
+function renderDxList(){
+  el.dxList.innerHTML = "";
+  if(!state.sel || state.sel.kind !== "person") return;
+  const p = state.people[state.sel.id];
+  if(!p) return;
+  p.dx = Array.isArray(p.dx) ? p.dx : [];
+
+  if(p.dx.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "No diagnoses added.";
+    el.dxList.appendChild(empty);
+    return;
+  }
+
+  p.dx.forEach((d, idx) => {
+    const row = document.createElement("div");
+    row.className = "dxItem";
+
+    const t = document.createElement("input");
+    t.value = fmtDx(d.type || "");
+    t.disabled = true;
+
+    const a = document.createElement("input");
+    a.type = "number";
+    a.min = "0";
+    a.placeholder = "Age";
+    a.value = (d.age === null || d.age === undefined) ? "" : String(d.age);
+    a.addEventListener("input", () => {
+      const v = Number(a.value);
+      d.age = Number.isFinite(v) && a.value !== "" ? v : null;
+      renderOutput();
+      scheduleAutosave("dx age");
+    });
+
+    const rm = document.createElement("button");
+    rm.className = "small danger";
+    rm.textContent = "✕";
+    rm.addEventListener("click", () => {
+      p.dx.splice(idx,1);
+      renderDxList();
+      renderOutput();
+      draw();
+      scheduleAutosave("dx remove");
+    });
+
+    row.appendChild(t);
+    row.appendChild(a);
+    row.appendChild(rm);
+    el.dxList.appendChild(row);
+  });
+}
+
+el.dxAdd.addEventListener("click", () => {
+  if(!state.sel || state.sel.kind !== "person") return;
+  const p = state.people[state.sel.id];
+  if(!p) return;
+
+  const type = el.dxType.value;
+  const ageVal = Number(el.dxAge.value);
+  const age = Number.isFinite(ageVal) && el.dxAge.value !== "" ? ageVal : null;
+
+  p.dx = Array.isArray(p.dx) ? p.dx : [];
+  p.dx.push({type, age});
+  el.dxAge.value = "";
+
+  renderDxList();
+  renderOutput();
+  draw();
+  scheduleAutosave("dx add");
+});
+
+// Toolbar
+document.getElementById('addMale').onclick = () => addPerson("M");
+document.getElementById('addFemale').onclick = () => addPerson("F");
+document.getElementById('addUnknown').onclick = () => addPerson("U");
+
+document.getElementById('setProband').onclick = () => {
+  if(state.sel && state.sel.kind==="person"){
+    state.probandId = state.sel.id;
+    fillEditor();
+    renderOutput();
+    draw();
+    scheduleAutosave("set proband");
+  }
+};
+
+document.getElementById('connectPartner').onclick = () => {
+  state.tool = "connectPartner";
+  state.toolStage = 0;
+  state.toolFrom = null;
+  draw();
+};
+document.getElementById('connectUnionChild').onclick = () => {
+  state.tool = "connectUnionChild";
+  state.toolStage = 0;
+  state.toolFrom = null;
+  draw();
+};
+document.getElementById('delete').onclick = () => removeSelection();
+
+document.getElementById('resetView').onclick = () => {
+  state.view.panX = 0; state.view.panY = 0; state.view.scale = 1;
+  draw();
+  scheduleAutosave("reset view");
+};
+
+document.getElementById('export').onclick = async () => {
+  const payload = exportJSON();
+  await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+  alert("Exported JSON copied to clipboard.");
+};
+
+document.getElementById('import').onclick = async () => {
+  const txt = prompt("Paste JSON here:");
+  if(!txt) return;
+  try{
+    const obj = JSON.parse(txt);
+    importJSON(obj);
+    alert("Imported.");
+    scheduleAutosave("import");
+  } catch(e){
+    alert("Import failed: " + e.message);
+  }
+};
+
+// PREMM5 official input (optional)
+el.premm5Official.addEventListener("input", () => {
+  state.meta.premm5_official_pct = el.premm5Official.value;
+  renderOutput();
+  scheduleAutosave("premm5 official");
+});
+document.getElementById("clearPremm5").onclick = () => {
+  el.premm5Official.value = "";
+  state.meta.premm5_official_pct = "";
+  renderOutput();
+  scheduleAutosave("premm5 clear");
+};
+
+function exportJSON(){
+  return {
+    version: "fh_canvas_union_click_dx_v3_guidelines_premm5_autosave",
+    ruleset_version: "guideline-lite + premm5_threshold_2.5 + crc_fh_start_40_or_minus10",
+    proband_id: state.probandId,
+    people: Object.values(state.people),
+    unions: Object.values(state.unions),
+    unionChildren: state.unionChildren,
+    view: state.view,
+    meta: state.meta,
+    generated_at: new Date().toISOString()
+  };
+}
+
+function importJSON(obj){
+  state.people = {};
+  state.unions = {};
+  state.unionChildren = Array.isArray(obj.unionChildren) ? obj.unionChildren : [];
+  state.view = obj.view || {panX:0, panY:0, scale:1};
+  state.probandId = obj.proband_id || null;
+  state.meta = obj.meta || { premm5_official_pct: "" };
+
+  let maxP = 0, maxU = 0;
+
+  for(const p of (obj.people || [])){
+    if(!Array.isArray(p.dx)){
+      if(typeof p.dxLines === "string"){
+        p.dx = p.dxLines.split("\n").map(s => s.trim()).filter(Boolean).map(line => {
+          const parts = line.split(":").map(x => x.trim());
+          return {type: (parts[0]||"").toLowerCase(), age: parts[1] ? Number(parts[1]) : null};
+        }).filter(d => d.type);
+      } else {
+        p.dx = [];
+      }
+    }
+    p.env = p.env || {smoke:""};
+    if(!p.eth_code && (p.eth || "").trim()){
+      const inferred = normalizeEthFromLegacyString(p.eth);
+      p.eth_code = inferred.code;
+      p.eth_label = inferred.code === "other" ? (inferred.label || p.eth) : inferred.label;
+    }
+    state.people[p.id] = p;
+
+    const n = parseInt(String(p.id||"").replace("P",""),10);
+    if(Number.isFinite(n)) maxP = Math.max(maxP, n);
+  }
+
+  for(const u of (obj.unions || [])){
+    state.unions[u.id] = u;
+    const n = parseInt(String(u.id||"").replace("U",""),10);
+    if(Number.isFinite(n)) maxU = Math.max(maxU, n);
+  }
+
+  idCounter = maxP + 1;
+  unionCounter = maxU + 1;
+
+  state.unionChildren = state.unionChildren.filter(e => state.unions[e.union] && state.people[e.child]);
+  if(state.probandId && !state.people[state.probandId]) state.probandId = Object.keys(state.people)[0] || null;
+
+  state.sel = state.probandId ? {kind:"person", id:state.probandId} :
+              (Object.keys(state.people)[0] ? {kind:"person", id:Object.keys(state.people)[0]} : null);
+
+  // sync UI for PREMM5
+  el.premm5Official.value = (state.meta && state.meta.premm5_official_pct !== undefined) ? String(state.meta.premm5_official_pct||"") : "";
+
+  fillEditor();
+  renderOutput();
+  draw();
+}
+
+// Kinship inference (approx)
+function parentsOf(childId){
+  const parents = new Set();
+  for(const e of state.unionChildren){
+    if(e.child !== childId) continue;
+    const u = state.unions[e.union];
+    if(u && state.people[u.a]) parents.add(u.a);
+    if(u && state.people[u.b]) parents.add(u.b);
+  }
+  return Array.from(parents);
+}
+
+function unionsOfPerson(pid){
+  const out = [];
+  for(const uid of Object.keys(state.unions)){
+    const u = state.unions[uid];
+    if(u.a === pid || u.b === pid) out.push(uid);
+  }
+  return out;
+}
+
+function childrenOf(pid){
+  const kids = new Set();
+  for(const uid of unionsOfPerson(pid)){
+    for(const e of state.unionChildren){
+      if(e.union === uid) kids.add(e.child);
+    }
+  }
+  return Array.from(kids);
+}
+
+function siblingsOf(id){
+  const ps = parentsOf(id);
+  const sibs = new Set();
+  for(const otherId of Object.keys(state.people)){
+    if(otherId === id) continue;
+    const ops = parentsOf(otherId);
+    if(ps.some(x => ops.includes(x))) sibs.add(otherId);
+  }
+  return Array.from(sibs);
+}
+
+function grandparentsOf(id){
+  const gps = new Set();
+  for(const p of parentsOf(id)){
+    for(const gp of parentsOf(p)) gps.add(gp);
+  }
+  return Array.from(gps);
+}
+
+function auntsUnclesOf(id){
+  const aus = new Set();
+  for(const p of parentsOf(id)){
+    for(const s of siblingsOf(p)) aus.add(s);
+  }
+  return Array.from(aus);
+}
+
+function niecesNephewsOf(id){
+  const nns = new Set();
+  for(const s of siblingsOf(id)){
+    for(const c of childrenOf(s)) nns.add(c);
+  }
+  return Array.from(nns);
+}
+
+function degreeToProband(targetId){
+  const proband = state.probandId;
+  if(!proband || !state.people[proband] || !state.people[targetId]) return null;
+  if(targetId === proband) return 0;
+
+  if(parentsOf(proband).includes(targetId)) return 1;
+  if(childrenOf(proband).includes(targetId)) return 1;
+  if(siblingsOf(proband).includes(targetId)) return 1;
+
+  if(grandparentsOf(proband).includes(targetId)) return 2;
+  for(const child of childrenOf(proband)){
+    if(childrenOf(child).includes(targetId)) return 2;
+  }
+  if(auntsUnclesOf(proband).includes(targetId)) return 2;
+  if(niecesNephewsOf(proband).includes(targetId)) return 2;
+
+  const probandGPs = new Set(grandparentsOf(proband));
+  const targetGPs = new Set(grandparentsOf(targetId));
+  const shareGP = Array.from(probandGPs).some(gp => targetGPs.has(gp));
+  if(shareGP) return 3;
+
+  return null;
+}
+
+// Helpers
+function hasDx(p, t){ return (p.dx || []).some(d => d.type === t); }
+function dxAges(p, t){
+  return (p.dx || []).filter(d => d.type === t).map(d => (Number.isFinite(d.age) ? d.age : null));
+}
+function minFinite(arr){
+  const nums = arr.filter(x => Number.isFinite(x));
+  return nums.length ? Math.min(...nums) : null;
+}
+function countDx(p, pred){
+  return (p.dx||[]).filter(d => pred(d)).length;
+}
+
+// --- Toy “feel” models (kept) ---
+function toyRiskLynch(rels){
+  let score = 0;
+  for(const r of rels){
+    if(r.degree !== 1 && r.degree !== 2) continue;
+    const p = r.p;
+    const crcMin = minFinite(dxAges(p,"crc"));
+    const endoMin = minFinite(dxAges(p,"endometrial"));
+
+    if(crcMin !== null) score += (r.degree===1 ? (crcMin < 50 ? 2.4 : 1.4) : (crcMin < 50 ? 1.6 : 0.9));
+    if(endoMin !== null) score += (r.degree===1 ? (endoMin < 50 ? 2.2 : 1.3) : (endoMin < 50 ? 1.4 : 0.8));
+
+    const others = (p.dx||[]).filter(d => LS_RELATED.has(d.type) && d.type!=="crc" && d.type!=="endometrial");
+    if(others.length) score += (r.degree===1 ? 0.8 : 0.5) * Math.min(3, others.length);
+
+    const lsCount = (p.dx||[]).filter(d => LS_RELATED.has(d.type)).length;
+    if(lsCount >= 2) score += (r.degree===1 ? 1.2 : 0.8);
+  }
+  const pct = clamp( (sigmoid(1.05*(score - 2.8)) * 32.0), 0, 35 );
+  return {pct, score};
+}
+
+function toyRiskHBOC(rels){
+  let score = 0;
+  const close = rels.filter(r => r.degree===1 || r.degree===2);
+  for(const r of close){
+    const p = r.p;
+    const breastMin = minFinite(dxAges(p,"breast"));
+    const ovarianMin = minFinite(dxAges(p,"ovarian"));
+    if(ovarianMin !== null) score += (r.degree===1 ? 3.0 : 2.0);
+    if(breastMin !== null) score += (r.degree===1 ? (breastMin < 50 ? 2.2 : 1.2) : (breastMin < 50 ? 1.6 : 0.9));
+    if(p.sex==="M" && breastMin !== null) score += 2.0;
+    if(hasDx(p,"pancreas")) score += 1.0;
+    if(hasDx(p,"prostate")) score += 0.7;
+  }
+  const breastCount = close.filter(r => hasDx(r.p,"breast")).length;
+  if(breastCount >= 2) score += 1.6;
+  const pct = clamp( (sigmoid(0.95*(score - 3.0)) * 42.0), 0, 45 );
+  return {pct, score};
+}
+
+// --- PREMM5 proxy (explicitly NOT the official model) ---
+// Outputs a plausible % for “feel”, but always labeled as proxy.
+// Use official PREMM5 input when available.
+function premm5Proxy(proband, rels){
+  const close = rels.filter(r => r.degree===1 || r.degree===2);
+
+  const personal_crc = hasDx(proband,"crc");
+  const personal_endo = hasDx(proband,"endometrial");
+  const personal_ls = personal_crc || personal_endo || (proband.dx||[]).some(d => LS_RELATED.has(d.type));
+
+  let fdr_crc_endo = 0;
+  let sdr_crc_endo = 0;
+  let other_ls = 0;
+  let any_early = false;
+  let missing_age = false;
+  let multi_ls_same_person = false;
+
+  for(const r of close){
+    const p = r.p;
+    const lsDx = (p.dx||[]).filter(d => LS_RELATED.has(d.type));
+    if(lsDx.length >= 2) multi_ls_same_person = true;
+
+    for(const d of lsDx){
+      if(d.age === null || d.age === undefined) missing_age = true;
+      if(Number.isFinite(d.age) && d.age < 50) any_early = true;
+    }
+
+    const has_crc_endo = hasDx(p,"crc") || hasDx(p,"endometrial");
+    const has_other = (p.dx||[]).some(d => LS_RELATED.has(d.type) && d.type!=="crc" && d.type!=="endometrial");
+
+    if(has_crc_endo){
+      if(r.degree === 1) fdr_crc_endo++;
+      else if(r.degree === 2) sdr_crc_endo++;
+    }
+    if(has_other) other_ls++;
+  }
+
+  // proxy logistic (tuned for sensible outputs, not “truth”)
+  let z = -3.2;
+  z += personal_ls ? 1.6 : 0;
+  z += fdr_crc_endo >= 1 ? 1.2 : 0;
+  z += fdr_crc_endo >= 2 ? 0.6 : 0;
+  z += sdr_crc_endo >= 1 ? 0.7 : 0;
+  z += other_ls >= 1 ? 0.55 : 0;
+  z += other_ls >= 2 ? 0.35 : 0;
+  z += any_early ? 0.55 : 0;
+  z += multi_ls_same_person ? 0.45 : 0;
+
+  const pct = clamp(sigmoid(z)*100, 0, 60); // cap to keep it sane
+  const approx = {
+    is_proxy: true,
+    missing_age,
+    inputs: { personal_ls, fdr_crc_endo, sdr_crc_endo, other_ls, any_early, multi_ls_same_person }
+  };
+  return { pct, approx };
+}
+
+// --- Guideline-ish triggers (lite) ---
+function computeFlags(){
+  const proband = state.people[state.probandId];
+  if(!proband) return {pills:[], flags:[], recs:[], why:[], metrics:[], assumptions:[], trace:[]};
+
+  const allPeople = Object.values(state.people);
+  const relsAll = allPeople
+    .filter(p => p.id !== proband.id)
+    .map(p => ({p, degree: degreeToProband(p.id)}));
+
+  const rels = relsAll.filter(r => r.degree !== null);
+  const unconnected = relsAll.filter(r => r.degree === null);
+
+  const lynchToy = toyRiskLynch(rels);
+  const hbocToy  = toyRiskHBOC(rels);
+  const premmProxy = premm5Proxy(proband, rels);
+
+  // official PREMM5 if user typed it
+  const officialStr = (state.meta && state.meta.premm5_official_pct !== undefined) ? String(state.meta.premm5_official_pct||"").trim() : "";
+  const officialNum = officialStr === "" ? null : Number(officialStr);
+  const officialOk  = (officialNum !== null && Number.isFinite(officialNum)) ? officialNum : null;
+
+  // approximations / data quality
+  const approx = [];
+  if(unconnected.length) approx.push(`${unconnected.length} person(s) not connected to proband (degree unknown)`);
+  const missingDxAges = relsAll.filter(r => (r.p.dx||[]).some(d => (d.type && d.type!=="other") && (d.age===null || d.age===undefined))).length;
+  if(missingDxAges) approx.push(`${missingDxAges} person(s) have cancer dx with missing age`);
+  if(String(proband.age||"").trim()==="") approx.push("Proband age missing (some screening suggestions may be generic)");
+  if(premmProxy.approx.missing_age) approx.push("PREMM5 proxy used missing dx ages (proxy less reliable)");
+
+  // guideline triggers
+  const lynchTriggers = [];
+  const hbocTriggers = [];
+  const screening = [];
+
+  // helpers
+  const close = rels.filter(r => r.degree===1 || r.degree===2);
+  const fdr = rels.filter(r => r.degree===1);
+  const sdr = rels.filter(r => r.degree===2);
+
+  function earliestDxAmong(relset, type){
+    let best = null;
+    for(const r of relset){
+      const m = minFinite(dxAges(r.p, type));
+      if(m !== null) best = (best===null) ? m : Math.min(best, m);
+    }
+    return best;
+  }
+
+  // Lynch-ish
+  const fdrCrc = earliestDxAmong(fdr,"crc");
+  const fdrEndo = earliestDxAmong(fdr,"endometrial");
+  const closeLsCount = close.filter(r => (r.p.dx||[]).some(d => LS_RELATED.has(d.type))).length;
+  const closeEarlyLs = close.some(r => (r.p.dx||[]).some(d => LS_RELATED.has(d.type) && Number.isFinite(d.age) && d.age < 50));
+  const anyMultiLs = close.some(r => (r.p.dx||[]).filter(d => LS_RELATED.has(d.type)).length >= 2);
+
+  if(officialOk !== null){
+    if(officialOk >= 2.5) lynchTriggers.push(`Official PREMM5 ≥ 2.5% (entered: ${officialOk.toFixed(1)}%)`);
+    else lynchTriggers.push(`Official PREMM5 < 2.5% (entered: ${officialOk.toFixed(1)}%)`);
+  } else {
+    // proxy interpretation
+    if(premmProxy.pct >= 2.5) lynchTriggers.push(`PREMM5 proxy ≥ 2.5% (proxy: ${premmProxy.pct.toFixed(1)}%)`);
+  }
+
+  if(fdrCrc !== null && fdrCrc < 50) lynchTriggers.push("1st-degree relative with CRC < 50");
+  if(fdrEndo !== null && fdrEndo < 50) lynchTriggers.push("1st-degree relative with endometrial cancer < 50");
+  if(closeLsCount >= 2 && (closeEarlyLs || anyMultiLs)) lynchTriggers.push("≥2 close relatives with Lynch-associated cancers + (early <50 OR multiple cancers in one person)");
+  if(rels.filter(r => (r.p.dx||[]).some(d => LS_RELATED.has(d.type))).length >= 3) lynchTriggers.push("≥3 relatives with Lynch-associated cancers (pattern concern)");
+
+  // HBOC-ish (BRCA-pathway screening triggers, lite)
+  const closeOvarian = close.some(r => hasDx(r.p,"ovarian"));
+  const closeMaleBreast = close.some(r => r.p.sex==="M" && hasDx(r.p,"breast"));
+  const closeEarlyBreast = close.some(r => {
+    const m = minFinite(dxAges(r.p,"breast"));
+    return m !== null && m < 50;
+  });
+  const closeBreastCount = close.filter(r => hasDx(r.p,"breast")).length;
+  const closePancreas = close.some(r => hasDx(r.p,"pancreas"));
+  const closeProstate = close.some(r => hasDx(r.p,"prostate"));
+
+  const probAshk = (proband.eth_code === "ashkenazi_jewish");
+  const anyAshkAffected = probAshk && (closeBreastCount>0 || closeOvarian || closePancreas || closeProstate);
+
+  if(closeOvarian) hbocTriggers.push("Close relative with ovarian cancer");
+  if(closeMaleBreast) hbocTriggers.push("Close male relative with breast cancer");
+  if(closeEarlyBreast) hbocTriggers.push("Close relative with breast cancer < 50");
+  if(closeBreastCount >= 2) hbocTriggers.push("≥2 close relatives with breast cancer");
+  if(closePancreas && (closeBreastCount>0 || closeOvarian || closeProstate)) hbocTriggers.push("Pancreatic + (breast/ovarian/prostate) cluster in close relatives");
+  if(anyAshkAffected) hbocTriggers.push("Ashkenazi Jewish ancestry + breast/ovarian/pancreas/prostate pattern (lower threshold)");
+
+  // Screening suggestions (non-prescriptive)
+  // CRC family-history screening suggestion: 40 or 10 years before youngest FDR diagnosis (whichever earlier)
+  if(fdrCrc !== null){
+    const start = clamp(Math.min(40, fdrCrc - 10), 20, 60);
+    screening.push(`CRC family history: consider colon screening start around age ${start} (rule: 40 or 10 years before youngest FDR diagnosis).`);
+  } else if(fdr.some(r => hasDx(r.p,"crc"))){
+    screening.push(`CRC family history: FDR has CRC (age unknown) → consider earlier screening (often age 40).`);
+  } else {
+    screening.push(`CRC: no FDR CRC recorded → typical average-risk start age is often 45 (confirm local guideline).`);
+  }
+
+  if(hbocTriggers.length){
+    screening.push(`HBOC pathway: use a brief familial risk assessment tool → if positive, genetic counseling/testing and high-risk screening planning.`);
+  }
+  if(lynchTriggers.some(x => x.includes("≥") || x.includes("1st-degree") || x.includes("pattern") || x.includes("PREMM5"))){
+    screening.push(`Lynch pathway: consider genetics referral/testing discussion; if confirmed, screening changes substantially.`);
+  }
+
+  // Metrics
+  function badgeForYN(yes){
+    return yes ? {cls:"danger", text:"YES"} : {cls:"ok", text:"NO"};
+  }
+  function badgeForPct(pct){
+    if(pct >= 15) return {cls:"danger", text:"higher"};
+    if(pct >= 7) return {cls:"warn", text:"moderate"};
+    return {cls:"ok", text:"lower"};
+  }
+
+  const lynchMeets = lynchTriggers.some(t => /1st-degree|≥2|≥3|PREMM5 proxy ≥ 2\.5|Official PREMM5 ≥ 2\.5/.test(t));
+  const hbocMeets = hbocTriggers.length > 0;
+
+  const metrics = [];
+
+  metrics.push({
+    label: "Guideline-style: Lynch referral criteria met?",
+    value: lynchMeets ? "YES" : "NO",
+    badge: badgeForYN(lynchMeets),
+    sub: "Lite rules; confirm with genetics/official criteria."
+  });
+
+  metrics.push({
+    label: "Guideline-style: BRCA/HBOC pathway criteria met?",
+    value: hbocMeets ? "YES" : "NO",
+    badge: badgeForYN(hbocMeets),
+    sub: "Reflects common triggers (ovarian, male breast, early breast, clustering, ancestry)."
+  });
+
+  metrics.push({
+    label: "Official PREMM5 % (entered)",
+    value: (officialOk === null) ? "(not entered)" : `${officialOk.toFixed(1)}%`,
+    badge: (officialOk === null) ? {cls:"warn", text:"missing"} : (officialOk >= 2.5 ? {cls:"danger", text:"≥2.5%"} : {cls:"ok", text:"<2.5%"}),
+    sub: "If you enter the calculator result, this becomes the preferred PREMM5 number."
+  });
+
+  metrics.push({
+    label: "PREMM5 proxy % (auto)",
+    value: `${premmProxy.pct.toFixed(1)}%`,
+    badge: (premmProxy.pct >= 2.5 ? {cls:"warn", text:"proxy ≥2.5"} : {cls:"ok", text:"proxy <2.5"}),
+    sub: "This is NOT the official PREMM5 model. It’s a transparent approximation from your tree."
+  });
+
+  metrics.push({
+    label: "Toy Lynch (feel) %",
+    value: `${lynchToy.pct.toFixed(1)}%`,
+    badge: badgeForPct(lynchToy.pct),
+    sub: "Pure heuristic: just a feel number."
+  });
+
+  metrics.push({
+    label: "Toy HBOC (feel) %",
+    value: `${hbocToy.pct.toFixed(1)}%`,
+    badge: badgeForPct(hbocToy.pct),
+    sub: "Pure heuristic: just a feel number."
+  });
+
+  // Pills
+  const pills = [];
+  if(approx.length){
+    pills.push({kind:"warn", text:`Approximations: YES (${approx.length})`});
+  } else {
+    pills.push({kind:"ok", text:`Approximations: none detected`});
+  }
+  pills.push({kind:"ok", text:`Connected relatives: ${rels.length}`});
+  if(unconnected.length) pills.push({kind:"warn", text:`Unconnected nodes: ${unconnected.length}`});
+  pills.push({kind: (hbocMeets ? "danger" : "ok"), text:`HBOC criteria: ${hbocMeets ? "YES" : "NO"}`});
+  pills.push({kind: (lynchMeets ? "danger" : "ok"), text:`Lynch criteria: ${lynchMeets ? "YES" : "NO"}`});
+
+  // Why + trace
+  const why = [];
+  why.push(`Proband: ${proband.name || proband.id}`);
+  why.push(`Proband ancestry: ${proband.eth_label || "(unknown)"}`);
+  why.push(`Ruleset: ${"guideline-lite + PREMM5(official/proxy) + explicit approximations"}`);
+
+  const trace = [];
+  for(const r of rels){
+    const p = r.p;
+    const cancers = (p.dx||[])
+      .filter(d => d.type && d.type!=="other")
+      .map(d => `${fmtDx(d.type)}${Number.isFinite(d.age) ? " @"+d.age : ""}`)
+      .join(", ");
+    if(cancers){
+      trace.push(`Deg ${r.degree}: ${p.name||p.id} — ${cancers}`);
+    }
+  }
+  if(unconnected.length){
+    const unc = unconnected
+      .slice(0,6)
+      .map(r => r.p.name||r.p.id)
+      .join(", ");
+    trace.push(`Unconnected (degree unknown): ${unc}${unconnected.length>6 ? " …" : ""}`);
+  }
+
+  // Assumptions
+  const assumptions = [
+    "Guideline-style triggers are simplified (good for teaching / rough triage).",
+    "PREMM5 proxy is NOT the official model; it approximates directionality from the tree.",
+    "If diagnosis ages are missing, early-onset logic may under/over-trigger.",
+    "Only relatives connected by unions/children contribute degrees; unconnected nodes don’t count.",
+    "Environmental factors are context and do not imply germline causation."
+  ];
+
+  // Flags (human bullets)
+  const flags = [];
+  if(lynchTriggers.length){
+    flags.push("Lynch / MMR pattern triggers:");
+    for(const t of lynchTriggers) flags.push("• " + t);
+  } else {
+    flags.push("Lynch / MMR: no triggers detected with current data.");
+  }
+  if(hbocTriggers.length){
+    flags.push("BRCA/HBOC pattern triggers:");
+    for(const t of hbocTriggers) flags.push("• " + t);
+  } else {
+    flags.push("BRCA/HBOC: no triggers detected with current data.");
+  }
+
+  // Recommendations / next steps (non-prescriptive)
+  const recs = [];
+  recs.push({
+    title:"Next steps (practical)",
+    items:[
+      "If criteria are triggered: consider genetics referral and confirm institutional policy.",
+      "If you have official PREMM5: paste it into the header input to replace the proxy interpretation.",
+      "Fill in ages at diagnosis (even approximate decades) to tighten early-onset triggers.",
+      "Connect unlinked nodes via unions/children so degree inference works."
+    ]
+  });
+
+  recs.push({
+    title:"Screening suggestions (non-prescriptive reminders)",
+    items: screening
+  });
+
+  recs.push({
+    title:"Persistence / searchable database idea",
+    items:[
+      "Autosave stores the current pedigree locally in your browser (localStorage).",
+      "Export JSON can be stored server-side later and indexed by: dx types, earliest ages, counts, ancestry, exposures, ruleset_version.",
+      "Keep a ruleset_version string with every export so old analyses can be reproduced."
+    ]
+  });
+
+  return {pills, flags, recs, why, metrics, assumptions, trace, approx};
+}
+
+function renderOutput(){
+  const out = document.getElementById('out');
+  const {pills, flags, recs, why, metrics, assumptions, trace, approx} = computeFlags();
+
+  let html = "";
+
+  // pills
+  html += `<div>`;
+  for(const p of pills){
+    html += `<span class="pill ${p.kind}">${escapeHtml(p.text)}</span>`;
+  }
+  html += `</div>`;
+
+  // metrics
+  html += `<div class="section"><h3>Live metrics</h3>`;
+  html += `<div class="muted">Guideline triggers are the base output. PREMM5 proxy is labeled as approximation unless you enter the official result.</div>`;
+  for(const m of metrics){
+    html += `<div class="metricRow">
+      <div>
+        <div style="font-weight:900;">${escapeHtml(m.label)}</div>
+        <div class="muted" style="margin-top:4px;">${escapeHtml(m.sub || "")}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="metricVal">${escapeHtml(m.value)}</div>
+        <div class="badge ${m.badge.cls}" style="margin-top:6px; display:inline-block;">${escapeHtml(m.badge.text)}</div>
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+
+  // flags
+  html += `<div class="section"><h3>Guideline-style triggers (lite)</h3><ul>`;
+  for(const f of flags){
+    if(f.startsWith("• ")) html += `<li>${escapeHtml(f)}</li>`;
+    else html += `<li><b>${escapeHtml(f)}</b></li>`;
+  }
+  html += `</ul></div>`;
+
+  // why
+  html += `<div class="section"><h3>Why</h3><ul>`;
+  for(const w of why) html += `<li>${escapeHtml(w)}</li>`;
+  html += `</ul></div>`;
+
+  // approximations
+  html += `<div class="section"><h3>Approximations / missing data</h3>`;
+  if(!approx || !approx.length){
+    html += `<div class="muted">None detected.</div>`;
+  } else {
+    html += `<ul>`;
+    for(const a of approx) html += `<li>${escapeHtml(a)}</li>`;
+    html += `</ul>`;
+  }
+  html += `</div>`;
+
+  // assumptions
+  html += `<div class="section"><h3>Assumptions</h3><ul>`;
+  for(const a of assumptions) html += `<li>${escapeHtml(a)}</li>`;
+  html += `</ul></div>`;
+
+  // trace
+  html += `<div class="section"><h3>Trace (what family data was read)</h3>`;
+  if(!trace || !trace.length){
+    html += `<div class="muted">No trace items (add diagnoses or connect relatives).</div>`;
+  } else {
+    html += `<ul>`;
+    for(const t of trace.slice(0, 28)) html += `<li>${escapeHtml(t)}</li>`;
+    if(trace.length > 28) html += `<li class="muted">… (${trace.length-28} more)</li>`;
+    html += `</ul>`;
+  }
+  html += `</div>`;
+
+  // next steps
+  html += `<div class="section"><h3>Next steps</h3>`;
+  for(const r of recs){
+    html += `<div style="margin-top:10px;padding:10px;border:1px solid #274173;border-radius:12px;background:#0c1a35;">`;
+    html += `<div style="font-weight:800;margin-bottom:6px;">${escapeHtml(r.title)}</div>`;
+    html += `<ul>`;
+    for(const it of r.items) html += `<li>${escapeHtml(it)}</li>`;
+    html += `</ul>`;
+    html += `</div>`;
+  }
+  html += `</div>`;
+
+  // links (kept inside HTML, no external dependency)
+  html += `<div class="section"><h3>Reference links</h3>
+    <div class="muted">
+      • PREMM5 calculator: search “PREMM5 calculator” (enter official % above)<br/>
+      • USPSTF BRCA pathway: brief risk tool → counseling/testing<br/>
+      • CRC family history: many guidelines use “40 or 10 years before youngest FDR diagnosis”
+    </div>
+  </div>`;
+
+  out.innerHTML = html;
+}
+
+function escapeHtml(s){
+  return String(s||"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+// ---------------- AUTOSAVE (localStorage) ----------------
+const AUTOSAVE_KEY = "fh_canvas_autosave_v3";
+const AUTOSAVE_DEBOUNCE_MS = 350;
+let _saveTimer = null;
+
+function setSaveStatus(msg, level="ok"){
+  const elS = document.getElementById("saveStatus");
+  const dot = document.getElementById("saveDot");
+  if(elS) elS.textContent = msg;
+  if(dot){
+    dot.className = "saveDot " + (level||"");
+  }
+}
+
+function scheduleAutosave(reason="edit"){
+  clearTimeout(_saveTimer);
+  setSaveStatus(`Autosave: pending (${reason})`, "warn");
+  _saveTimer = setTimeout(() => saveNow(), AUTOSAVE_DEBOUNCE_MS);
+}
+
+function saveNow(){
+  try{
+    const payload = exportJSON();
+    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(payload));
+    setSaveStatus(`Autosave: saved ${new Date().toLocaleTimeString()}`, "ok");
+  } catch(e){
+    console.error(e);
+    setSaveStatus("Autosave: FAILED (storage full?)", "danger");
+  }
+}
+
+function tryRestoreAutosave(){
+  const raw = localStorage.getItem(AUTOSAVE_KEY);
+  if(!raw) return false;
+  try{
+    const obj = JSON.parse(raw);
+    importJSON(obj);
+    setSaveStatus(`Autosave: restored ${new Date().toLocaleTimeString()}`, "ok");
+    return true;
+  }catch(e){
+    console.warn("Autosave restore failed:", e);
+    setSaveStatus("Autosave: restore failed", "danger");
+    return false;
+  }
+}
+
+function clearAutosave(){
+  localStorage.removeItem(AUTOSAVE_KEY);
+  setSaveStatus("Autosave: cleared", "warn");
+}
+
+// buttons
+document.getElementById("saveNow").onclick = () => saveNow();
+document.getElementById("clearSaved").onclick = () => {
+  if(confirm("Clear saved pedigree from this browser?")){
+    clearAutosave();
+  }
+};
+
+// ---------------- init ----------------
+if(!tryRestoreAutosave()){
+  addPerson("F");
+  // addPerson already selects proband and schedules autosave; but we want immediate initial render
+  renderOutput();
+  fillEditor();
+  draw();
+  saveNow();
+} else {
+  renderOutput();
+  fillEditor();
+  draw();
+}
+</script>
+</body>
+</html>
